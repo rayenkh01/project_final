@@ -183,6 +183,12 @@
             color: #b91c1c;
         }
 
+        .alert-success {
+            background: #ecfdf5;
+            border: 1px solid #bbf7d0;
+            color: #047857;
+        }
+
         .footer {
             margin-top: 18px;
             color: rgba(255, 255, 255, 0.95);
@@ -205,6 +211,12 @@
             @if ($errors->any())
                 <div class="alert alert-danger">
                     {{ $errors->first() }}
+                </div>
+            @endif
+
+            @if (session('status'))
+                <div class="alert alert-success">
+                    {{ session('status') }}
                 </div>
             @endif
 
@@ -245,22 +257,18 @@
                 </div>
 
                 <div class="form-group">
-                    <label class="main-label">Password</label>
+                    <div class="row-between" style="margin-bottom: 8px;">
+                        <label class="main-label" style="margin-bottom: 0;">Password</label>
+                        <a href="{{ route('password.request') }}">Forget password ?</a>
+                    </div>
                     <input type="password" name="password" placeholder="Enter your password" required>
-                </div>
-
-                <div class="row-between">
-                    <label>
-                        <input type="checkbox" name="remember"> Remember me
-                    </label>
-                    <a href="#">Forgot password?</a>
                 </div>
 
                 <button type="submit" class="btn">Sign In</button>
 
                 <div class="demo-box">
-                    Demo: Utilisez n'importe quel email/mot de passe<br>
-                    Sélectionnez simplement votre type d'utilisateur ci-dessus
+                    Connexion via la table Oracle users.<br>
+                    Pour une demo sans Oracle, activez AUTH_DEMO_LOGIN=true.
                 </div>
             </form>
         </div>
@@ -269,5 +277,13 @@
             © 2026 Tunisie Telecom. All rights reserved.
         </div>
     </div>
+    <script>
+        document.querySelectorAll('.role-option input').forEach((input) => {
+            input.addEventListener('change', () => {
+                document.querySelectorAll('.role-option').forEach((option) => option.classList.remove('active'));
+                input.closest('.role-option').classList.add('active');
+            });
+        });
+    </script>
 </body>
 </html>

@@ -10,7 +10,75 @@ use Throwable;
 class ImportMmgTmp extends Command
 {
     protected $signature = 'cdr:import-mmg';
-    protected $description = 'Import MMG CSV files into TMP then DETAIL';
+    protected $description = 'Import MMG CSV files into TMP, DETAIL then AGG';
+
+    private const TMP_COLUMNS = [
+        'AGGREGATION_GROUP',
+        'APN',
+        'A_IMSI',
+        'A_MSISDN',
+        'A_MSISDN_ORIG',
+        'BEARER_SERVICE',
+        'B_DATASOURCE',
+        'B_IMSI',
+        'B_MSISDN',
+        'B_MSISDN_ORIG',
+        'CALL_REFERENCE',
+        'CALL_TYPE',
+        'CAUSE_FOR_CLOSING',
+        'CDR_SEARCH_DETAIL_ID',
+        'CELL_ID',
+        'CGI_ID_KEY',
+        'CHARGE_AMNT_STEP',
+        'CHARGE_AMOUNT_ORIG',
+        'C_NUM',
+        'C_NUM_ORIG',
+        'DATA_VOLUME',
+        'DATA_VOLUME_DOWN',
+        'DATA_VOLUME_UP',
+        'DURATION_STEP',
+        'ESTIMATED_AMOUNT',
+        'EVENT_DURATION',
+        'EVENT_STATUS',
+        'EVENT_TYPE',
+        'EVENT_TYPE_ORIG',
+        'FILENAME',
+        'FILTER_CODE',
+        'IMEI',
+        'LAST_PARTIAL',
+        'NE',
+        'ORIG_START_TIME',
+        'PARTIAL_SEQ_ID',
+        'PARTNER',
+        'PARTNER_CODE',
+        'PGW_ADDRESS',
+        'PRICE_PLAN_CODE',
+        'PROC_DATE',
+        'PROC_HOUR',
+        'RADIO_TYPE',
+        'RATE_CODE',
+        'RECORD_ID',
+        'RECORD_STATUS',
+        'RECORD_TYPE',
+        'ROAMING_TYPE',
+        'SERVED_MSRN',
+        'SERVICE_ID',
+        'SERVICE_PARTNER',
+        'SERVICE_TYPE',
+        'SGSN_ADDRESS',
+        'SMS_CENTRE',
+        'START_DATE_TIME_HOME',
+        'START_TIME',
+        'SUBSCRIBER_TYPE',
+        'TELESERVICE',
+        'TEST_FLAG',
+        'TON_A',
+        'TON_B',
+        'TON_C',
+        'TRAFFIC_TYPE',
+        'TRUNK_IN',
+        'TRUNK_OUT',
+    ];
 
     public function handle()
     {
@@ -42,8 +110,10 @@ class ImportMmgTmp extends Command
 
             $fileName = $file->getFilename();
             $filePath = $file->getPathname();
+            $importFileName = $this->buildImportFileName($fileName);
 
             $this->info("Processing: {$fileName}");
+            $this->info("Database filename: {$importFileName}");
 
             $handle = null;
 
@@ -54,103 +124,35 @@ class ImportMmgTmp extends Command
                     throw new \Exception("Cannot open file");
                 }
 
-                // Skip header
-                $header = fgetcsv($handle, 0, ',');
+                $this->info('File opened');
 
-                $batch = [];
-                $batchSize = 500;
+                $header = fgetcsv($handle, 0, ',');
+                $headerIndexes = $this->buildHeaderIndexes($header);
+
                 $insertedTmp = 0;
 
+                $this->info('Starting DB transaction...');
                 DB::beginTransaction();
+
+                $this->info('Preparing TMP insert...');
+                $insertTmp = DB::connection()->getPdo()->prepare($this->tmpInsertSql());
+                $this->info('Importing TMP rows...');
 
                 /**
                  * 1) TMP
                  */
                 while (($row = fgetcsv($handle, 0, ',')) !== false) {
 
-                    if (count(array_filter($row)) === 0) continue;
+                    if ($this->isBlankCsvRow($row)) continue;
 
-                    $batch[] = [
-                        'AGGREGATION_GROUP'    => $row[0] ?? null,
-                        'APN'                  => $row[1] ?? null,
-                        'A_IMSI'               => $row[2] ?? null,
-                        'A_MSISDN'             => $row[3] ?? null,
-                        'A_MSISDN_ORIG'        => $row[4] ?? null,
-                        'BEARER_SERVICE'       => $row[5] ?? null,
-                        'B_DATASOURCE'         => $row[6] ?? null,
-                        'B_IMSI'               => $row[7] ?? null,
-                        'B_MSISDN'             => $row[8] ?? null,
-                        'B_MSISDN_ORIG'        => $row[9] ?? null,
-                        'CALL_REFERENCE'       => $row[10] ?? null,
-                        'CALL_TYPE'            => $row[11] ?? null,
-                        'CAUSE_FOR_CLOSING'    => $row[12] ?? null,
-                        'CDR_SEARCH_DETAIL_ID' => $row[13] ?? null,
-                        'CELL_ID'              => $row[14] ?? null,
-                        'CGI_ID_KEY'           => $row[15] ?? null,
-                        'CHARGE_AMNT_STEP'     => $row[16] ?? null,
-                        'CHARGE_AMOUNT_ORIG'   => $row[17] ?? null,
-                        'C_NUM'                => $row[18] ?? null,
-                        'C_NUM_ORIG'           => $row[19] ?? null,
-                        'DATA_VOLUME'          => $row[20] ?? null,
-                        'DATA_VOLUME_DOWN'     => $row[21] ?? null,
-                        'DATA_VOLUME_UP'       => $row[22] ?? null,
-                        'DURATION_STEP'        => $row[23] ?? null,
-                        'ESTIMATED_AMOUNT'     => $row[24] ?? null,
-                        'EVENT_DURATION'       => $row[25] ?? null,
-                        'EVENT_STATUS'         => $row[26] ?? null,
-                        'EVENT_TYPE'           => $row[27] ?? null,
-                        'EVENT_TYPE_ORIG'      => $row[28] ?? null,
+                    $insertTmp->execute($this->tmpInsertValues(
+                        $this->mapTmpRow($row, $headerIndexes, $importFileName)
+                    ));
+                    $insertedTmp++;
 
-                        // 🔥 مهم جدًا
-                        'FILENAME'             => $fileName,
-
-                        'FILTER_CODE'          => $row[30] ?? null,
-                        'IMEI'                 => $row[31] ?? null,
-                        'LAST_PARTIAL'         => $row[32] ?? null,
-                        'NE'                   => $row[33] ?? null,
-                        'ORIG_START_TIME'      => $row[34] ?? null,
-                        'PARTIAL_SEQ_ID'       => $row[35] ?? null,
-                        'PARTNER'              => $row[36] ?? null,
-                        'PARTNER_CODE'         => $row[37] ?? null,
-                        'PGW_ADDRESS'          => $row[38] ?? null,
-                        'PRICE_PLAN_CODE'      => $row[39] ?? null,
-                        'PROC_DATE'            => $row[40] ?? null,
-                        'PROC_HOUR'            => $row[41] ?? null,
-                        'RADIO_TYPE'           => $row[42] ?? null,
-                        'RATE_CODE'            => $row[43] ?? null,
-                        'RECORD_ID'            => $row[44] ?? null,
-                        'RECORD_STATUS'        => $row[45] ?? null,
-                        'RECORD_TYPE'          => $row[46] ?? null,
-                        'ROAMING_TYPE'         => $row[47] ?? null,
-                        'SERVED_MSRN'          => $row[48] ?? null,
-                        'SERVICE_ID'           => $row[49] ?? null,
-                        'SERVICE_PARTNER'      => $row[50] ?? null,
-                        'SERVICE_TYPE'         => $row[51] ?? null,
-                        'SGSN_ADDRESS'         => $row[52] ?? null,
-                        'SMS_CENTRE'           => $row[53] ?? null,
-                        'START_DATE_TIME_HOME' => $row[54] ?? null,
-                        'START_TIME'           => $row[55] ?? null,
-                        'SUBSCRIBER_TYPE'      => $row[56] ?? null,
-                        'TELESERVICE'          => $row[57] ?? null,
-                        'TEST_FLAG'            => $row[58] ?? null,
-                        'TON_A'                => $row[59] ?? null,
-                        'TON_B'                => $row[60] ?? null,
-                        'TON_C'                => $row[61] ?? null,
-                        'TRAFFIC_TYPE'         => $row[62] ?? null,
-                        'TRUNK_IN'             => $row[63] ?? null,
-                        'TRUNK_OUT'            => $row[64] ?? null,
-                    ];
-
-                    if (count($batch) >= $batchSize) {
-                        DB::table('ra_t_tmp_mmg')->insert($batch);
-                        $insertedTmp += count($batch);
-                        $batch = [];
+                    if ($insertedTmp % 1000 === 0) {
+                        $this->info("TMP rows: {$insertedTmp}");
                     }
-                }
-
-                if (!empty($batch)) {
-                    DB::table('ra_t_tmp_mmg')->insert($batch);
-                    $insertedTmp += count($batch);
                 }
 
                 fclose($handle);
@@ -161,7 +163,9 @@ class ImportMmgTmp extends Command
                 /**
                  * 2) DETAIL
                  */
-                DB::statement("
+                $this->info('Building DETAIL rows...');
+
+                $insertedDetail = DB::affectingStatement("
                     INSERT INTO ra_t_detail_mmg (
                         A_MSISDN,
                         B_MSISDN,
@@ -172,9 +176,12 @@ class ImportMmgTmp extends Command
                         FILENAME,
                         NE,
                         ORIG_START_TIME,
-                        PARTNER,
+                        SERVICE_TYPE,
                         SUBSCRIBER_TYPE,
-                        TRAFFIC_TYPE
+                        TRAFFIC_TYPE,
+                        START_DATE,
+                        START_HOUR,
+                        CREATED_AT
                     )
                     SELECT
                         TRIM(A_MSISDN),
@@ -186,25 +193,97 @@ class ImportMmgTmp extends Command
                         FILENAME,
                         TRIM(NE),
                         TRIM(ORIG_START_TIME),
-                        TRIM(PARTNER),
+                        TRIM(SERVICE_TYPE),
                         TRIM(SUBSCRIBER_TYPE),
-                        TRIM(TRAFFIC_TYPE)
+                        TRIM(TRAFFIC_TYPE),
+                        CASE
+                            WHEN REGEXP_LIKE(TRIM(ORIG_START_TIME), '^[0-9]{14}$')
+                                THEN TRUNC(TO_DATE(TRIM(ORIG_START_TIME), 'YYYYMMDDHH24MISS'))
+                            WHEN REGEXP_LIKE(TRIM(PROC_DATE), '^[0-9]{8}')
+                                THEN TO_DATE(SUBSTR(TRIM(PROC_DATE), 1, 8), 'YYYYMMDD')
+                        END,
+                        CASE
+                            WHEN REGEXP_LIKE(TRIM(ORIG_START_TIME), '^[0-9]{10,}$')
+                                THEN SUBSTR(TRIM(ORIG_START_TIME), 9, 2)
+                            WHEN REGEXP_LIKE(TRIM(PROC_HOUR), '^[0-9]{1,2}$')
+                                THEN LPAD(TRIM(PROC_HOUR), 2, '0')
+                        END,
+                        SYSDATE
                     FROM ra_t_tmp_mmg
                     WHERE FILENAME = ?
-                ", [$fileName]);
+                ", [$importFileName]);
+
+                $this->info("DETAIL rows: {$insertedDetail}");
+
+                /**
+                 * 3) AGG
+                 */
+                $this->info('Building AGG rows...');
+
+                $insertedAgg = DB::affectingStatement("
+                    INSERT INTO ra_t_agg_mmg (
+                        B_MSISDN,
+                        START_DATE,
+                        START_HOUR,
+                        EVENT_TYPE,
+                        CALL_TYPE,
+                        EVENT_STATUS,
+                        SUBSCRIBER_TYPE,
+                        SERVICE_TYPE,
+                        CDR_COUNT,
+                        FILENAME,
+                        CREATED_AT
+                    )
+                    SELECT
+                        B_MSISDN,
+                        START_DATE,
+                        CASE
+                            WHEN REGEXP_LIKE(TRIM(START_HOUR), '^[0-9]{1,2}$')
+                                THEN TO_NUMBER(TRIM(START_HOUR))
+                        END,
+                        EVENT_TYPE,
+                        CALL_TYPE,
+                        EVENT_STATUS,
+                        SUBSCRIBER_TYPE,
+                        SERVICE_TYPE,
+                        COUNT(*),
+                        FILENAME,
+                        SYSDATE
+                    FROM ra_t_detail_mmg
+                    WHERE FILENAME = ?
+                    GROUP BY
+                        B_MSISDN,
+                        START_DATE,
+                        CASE
+                            WHEN REGEXP_LIKE(TRIM(START_HOUR), '^[0-9]{1,2}$')
+                                THEN TO_NUMBER(TRIM(START_HOUR))
+                        END,
+                        EVENT_TYPE,
+                        CALL_TYPE,
+                        EVENT_STATUS,
+                        SUBSCRIBER_TYPE,
+                        SERVICE_TYPE,
+                        FILENAME
+                ", [$importFileName]);
+
+                $this->info("AGG rows: {$insertedAgg}");
 
                 DB::commit();
 
                 /**
-                 * 3) MOVE FILE
+                 * 4) MOVE FILE
                  */
-                File::move($filePath, $processedPath . DIRECTORY_SEPARATOR . $fileName);
+                $processedFilePath = $processedPath . DIRECTORY_SEPARATOR . $fileName;
+                File::move($filePath, $processedFilePath);
+                touch($processedFilePath);
 
                 $this->info("SUCCESS: {$fileName}");
 
             } catch (Throwable $e) {
 
-                DB::rollBack();
+                if (DB::transactionLevel() > 0) {
+                    DB::rollBack();
+                }
 
                 if (is_resource($handle)) {
                     fclose($handle);
@@ -220,5 +299,96 @@ class ImportMmgTmp extends Command
         }
 
         return 0;
+    }
+
+    private function buildHeaderIndexes(array|false|null $header): array
+    {
+        $indexes = [];
+
+        foreach (self::TMP_COLUMNS as $index => $column) {
+            $indexes[$column] = $index;
+        }
+
+        if ($header === false || $header === null) {
+            return $indexes;
+        }
+
+        foreach ($header as $index => $column) {
+            $column = strtoupper(trim((string) $column));
+
+            if (in_array($column, self::TMP_COLUMNS, true)) {
+                $indexes[$column] = $index;
+            }
+        }
+
+        return $indexes;
+    }
+
+    private function mapTmpRow(array $row, array $headerIndexes, string $fileName): array
+    {
+        $mapped = [];
+
+        foreach (self::TMP_COLUMNS as $column) {
+            $mapped[$column] = $column === 'FILENAME'
+                ? $fileName
+                : $this->cleanValue($row[$headerIndexes[$column]] ?? null);
+        }
+
+        return $mapped;
+    }
+
+    private function buildImportFileName(string $fileName): string
+    {
+        $name = pathinfo($fileName, PATHINFO_FILENAME);
+        $extension = pathinfo($fileName, PATHINFO_EXTENSION);
+        $suffix = '_' . date('YmdHis') . '_' . getmypid();
+        $tail = $extension === '' ? $suffix : $suffix . '.' . $extension;
+        $maxNameLength = max(1, 255 - strlen($tail));
+
+        return substr($name, 0, $maxNameLength) . $tail;
+    }
+
+    private function tmpInsertSql(): string
+    {
+        $columns = implode(', ', self::TMP_COLUMNS);
+        $placeholders = implode(', ', array_map(
+            fn (int $index) => ':p' . $index,
+            array_keys(self::TMP_COLUMNS)
+        ));
+
+        return "INSERT INTO ra_t_tmp_mmg ({$columns}) VALUES ({$placeholders})";
+    }
+
+    private function tmpInsertValues(array $mapped): array
+    {
+        $values = [];
+
+        foreach (self::TMP_COLUMNS as $index => $column) {
+            $values['p' . $index] = $mapped[$column] ?? null;
+        }
+
+        return $values;
+    }
+
+    private function isBlankCsvRow(array $row): bool
+    {
+        foreach ($row as $value) {
+            if (trim((string) $value) !== '') {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private function cleanValue(mixed $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $value = trim((string) $value);
+
+        return $value === '' ? null : $value;
     }
 }

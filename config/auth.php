@@ -114,4 +114,16 @@ return [
 
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Local Demo Login
+    |--------------------------------------------------------------------------
+    |
+    | Keep this false when you want the login page to authenticate real users
+    | from Oracle. Set AUTH_DEMO_LOGIN=true only for quick UI demos.
+    |
+    */
+
+    'demo_login' => env('AUTH_DEMO_LOGIN', false),
+
 ];

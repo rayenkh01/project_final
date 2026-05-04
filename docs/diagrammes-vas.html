@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diagrammes du projet VAS CDR</title>
+    <style>
+        @page {
+            size: A4 landscape;
+            margin: 12mm;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            background: #f4f7fb;
+            color: #111827;
+            font-family: "Segoe UI", Arial, sans-serif;
+            line-height: 1.55;
+        }
+
+        main {
+            max-width: 1180px;
+            margin: 0 auto;
+            padding: 28px;
+            background: #fff;
+        }
+
+        h1 {
+            margin: 0 0 8px;
+            font-size: 30px;
+        }
+
+        h2 {
+            margin: 30px 0 14px;
+            font-size: 21px;
+            color: #0f172a;
+        }
+
+        p {
+            margin: 0 0 18px;
+            color: #4b5563;
+        }
+
+        .diagram {
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            padding: 18px;
+            overflow-x: auto;
+            background: #fff;
+            page-break-inside: avoid;
+        }
+
+        .note {
+            border-left: 4px solid #111827;
+            background: #f8fafc;
+            padding: 10px 12px;
+            margin-bottom: 18px;
+            color: #374151;
+        }
+    </style>
+</head>
+<body>
+<main>
+    <h1>Diagrammes du projet VAS CDR</h1>
+    <p>Diagrammes Mermaid prets pour le rapport du projet.</p>
+
+    <div class="note">
+        Si les diagrammes ne s'affichent pas, ouvrir le fichier Markdown
+        <strong>docs/diagrammes-vas.md</strong> dans un editeur compatible Mermaid.
+    </div>
+
+    <h2>1. Diagramme de cas d'utilisation</h2>
+    <div class="diagram">
+        <pre class="mermaid">
+flowchart LR
+    Admin[Administrateur]
+    Business[Analyste Business]
+    Ops[Analyste Operationnel]
+
+    subgraph System[Plateforme d'analyse des CDR - VAS]
+        UC1((Consulter dashboard))
+        UC2((Rechercher par MSISDN))
+        UC3((Importer liste MSISDN))
+        UC4((Consulter alertes))
+        UC5((Gerer utilisateurs))
+        UC6((Gerer FTP))
+        UC7((Gerer BD et Scheduler))
+        UC8((Pause / demarrer ETL))
+        UC9((Nettoyer donnees anciennes))
+        UC10((Suivre loading CDR))
+        UC11((Suivre agregation))
+        UC12((Gerer services))
+        UC13((Gerer fournisseurs))
+    end
+
+    Business --> UC1
+    Business --> UC2
+    Business --> UC3
+    Business --> UC4
+    Ops --> UC1
+    Ops --> UC10
+    Ops --> UC11
+    Ops --> UC12
+    Ops --> UC13
+    Admin --> UC1
+    Admin --> UC5
+    Admin --> UC6
+    Admin --> UC7
+    Admin --> UC8
+    Admin --> UC9
+        </pre>
+    </div>
+
+    <h2>2. Diagramme de sequence - ETL CDR</h2>
+    <div class="diagram">
+        <pre class="mermaid">
+sequenceDiagram
+    actor Admin as Administrateur
+    actor Ops as Operationnel
+    participant Scheduler as Laravel Scheduler
+    participant Import as Commande cdr:import
+    participant Incoming as Stockage incoming
+    participant TMP as Oracle TMP
+    participant DETAIL as Oracle DETAIL
+    participant AGG as Oracle AGG
+    participant Files as processed / error
+    participant Logs as Logs
+
+    Admin->>Scheduler: Configurer planification
+    Admin->>Import: Pause / demarrer ETL
+    Ops->>Incoming: Surveiller fichiers MMG/OCC
+    Scheduler->>Import: Lancer cdr:import all
+    Import->>Import: Verifier etat ETL
+
+    alt ETL en pause
+        Import->>Logs: Enregistrer import ignore
+    else ETL actif
+        Import->>Incoming: Lire fichiers MMG/OCC
+        Import->>TMP: Inserer donnees brutes
+        TMP->>DETAIL: Transformer et nettoyer
+        DETAIL->>AGG: Agreger par date, heure, service, type
+        alt Import OK
+            Import->>Files: Deplacer fichier vers processed
+            Import->>Logs: Enregistrer succes
+        else Erreur import
+            Import->>TMP: Rollback transaction
+            Import->>Files: Deplacer fichier vers error
+            Import->>Logs: Enregistrer erreur
+        end
+    end
+        </pre>
+    </div>
+
+    <h2>3. Diagramme d'activite - Traitement ETL</h2>
+    <div class="diagram">
+        <pre class="mermaid">
+flowchart TD
+    A([Debut]) --> B{Nouveaux fichiers CDR ?}
+    B -- Non --> Z([Fin])
+    B -- Oui --> C[Lire fichier CSV]
+    C --> D[Inserer lignes dans TMP]
+    D --> E[Transformer vers DETAIL]
+    E --> F[Construire agregations AGG]
+    F --> G{Traitement reussi ?}
+    G -- Oui --> H[Deplacer fichier vers processed]
+    G -- Non --> I[Rollback transaction]
+    I --> J[Deplacer fichier vers error]
+    H --> K[Enregistrer logs]
+    J --> K
+    K --> L{Autres fichiers ?}
+    L -- Oui --> C
+    L -- Non --> Z
+        </pre>
+    </div>
+
+    <h2>4. Diagramme d'architecture</h2>
+    <div class="diagram">
+        <pre class="mermaid">
+flowchart LR
+    Browser[Navigateur utilisateur]
+    Laravel[Application Laravel]
+    Auth[Middleware Auth / Roles]
+    Oracle[(Oracle Database)]
+    Storage[(Storage local CDR)]
+    FTP[Serveur FTP]
+    Scheduler[Laravel Scheduler]
+    Windows[Windows Task Scheduler]
+
+    Browser --> Laravel
+    Laravel --> Auth
+    Laravel --> Oracle
+    Laravel --> Storage
+    Laravel --> FTP
+    Windows --> Scheduler
+    Scheduler --> Laravel
+    Scheduler --> Storage
+    Scheduler --> Oracle
+
+    subgraph Modules[Modules Laravel]
+        Dashboard[Dashboard]
+        Search[Recherche MSISDN]
+        Loading[Loading CDR]
+        Agg[Agregation]
+        AdminBD[Gerer BD]
+        AdminFTP[Gerer FTP]
+        Users[Gerer utilisateurs]
+    end
+
+    Laravel --> Modules
+        </pre>
+    </div>
+
+    <h2>5. Diagramme de base de donnees simplifie</h2>
+    <div class="diagram">
+        <pre class="mermaid">
+erDiagram
+    USERS {
+        int id
+        string name
+        string email
+        string role
+    }
+
+    SERVICE_PROVIDER {
+        int id
+        string provider_name
+        string nationnalite
+    }
+
+    SERVICES {
+        int id
+        string service_name
+        string short_code
+        string keyword
+        decimal price
+        int provider_id
+    }
+
+    RA_T_TMP_MMG {
+        string filename
+        string a_msisdn
+        string b_msisdn
+        string event_type
+    }
+
+    RA_T_DETAIL_MMG {
+        string filename
+        string a_msisdn
+        string b_msisdn
+        date start_date
+        int start_hour
+    }
+
+    RA_T_AGG_MMG {
+        string filename
+        date start_date
+        int start_hour
+        int cdr_count
+    }
+
+    RA_T_TMP_OCC {
+        string filename
+        string a_msisdn
+        string b_msisdn
+        string charge_amount_orig
+    }
+
+    RA_T_DETAIL_OCC {
+        string filename
+        string a_msisdn
+        string b_msisdn
+        decimal charge_amount_orig
+    }
+
+    RA_T_AGG_OCC {
+        string keyword
+        date start_date
+        int start_hour
+        int cdr_count
+        decimal charge_amount
+    }
+
+    SERVICE_PROVIDER ||--o{ SERVICES : fournit
+    RA_T_TMP_MMG ||--o{ RA_T_DETAIL_MMG : transforme
+    RA_T_DETAIL_MMG ||--o{ RA_T_AGG_MMG : agrege
+    RA_T_TMP_OCC ||--o{ RA_T_DETAIL_OCC : transforme
+    RA_T_DETAIL_OCC ||--o{ RA_T_AGG_OCC : agrege
+        </pre>
+    </div>
+
+    <h2>6. Diagramme de composants</h2>
+    <div class="diagram">
+        <pre class="mermaid">
+flowchart TB
+    subgraph UI[Interface Web Laravel]
+        Login[Authentification]
+        Dashboard[Dashboard]
+        Business[Recherche MSISDN]
+        Operations[Loading CDR et Agregation]
+        Admin[Administration]
+    end
+
+    subgraph Backend[Backend Laravel]
+        Controllers[Controllers]
+        Middleware[Middleware roles]
+        Commands[Commandes Artisan]
+        Scheduler[Laravel Scheduler]
+        StorageService[Gestion fichiers CDR]
+    end
+
+    subgraph Data[Donnees]
+        Oracle[(Oracle)]
+        Files[(incoming / processed / error)]
+        Logs[(logs)]
+    end
+
+    UI --> Controllers
+    Controllers --> Middleware
+    Controllers --> Oracle
+    Controllers --> Files
+    Scheduler --> Commands
+    Commands --> StorageService
+    Commands --> Oracle
+    Commands --> Files
+    Commands --> Logs
+        </pre>
+    </div>
+
+    <h2>7. Diagramme d'etat des fichiers CDR</h2>
+    <div class="diagram">
+        <pre class="mermaid">
+stateDiagram-v2
+    [*] --> Nouveau
+    Nouveau --> Incoming: fichier disponible
+    Incoming --> EnTraitement: cdr:import
+    EnTraitement --> Processed: import OK
+    EnTraitement --> Error: erreur import
+    Processed --> Supprime: retention 30 jours
+    Error --> Analyse: consultation erreur
+    Analyse --> Incoming: correction / relance
+    Supprime --> [*]
+        </pre>
+    </div>
+</main>
+
+<script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";
+
+    mermaid.initialize({
+        startOnLoad: true,
+        theme: "base",
+        themeVariables: {
+            primaryColor: "#ffffff",
+            primaryTextColor: "#111827",
+            primaryBorderColor: "#111827",
+            lineColor: "#111827",
+            secondaryColor: "#f8fafc",
+            tertiaryColor: "#ffffff",
+            fontFamily: "Segoe UI, Arial, sans-serif"
+        }
+    });
+</script>
+</body>
+</html>

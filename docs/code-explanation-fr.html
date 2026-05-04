@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Explication du code du projet VAS SMS+ Monitor</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 16mm 14mm;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            background: #f4f7fb;
+            color: #182033;
+            font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+            font-size: 14px;
+            line-height: 1.65;
+        }
+
+        main {
+            max-width: 920px;
+            margin: 0 auto;
+            background: #ffffff;
+            padding: 34px;
+        }
+
+        h1,
+        h2,
+        h3 {
+            color: #0f172a;
+            line-height: 1.35;
+            margin: 0 0 12px;
+        }
+
+        h1 {
+            font-size: 30px;
+            border-bottom: 4px solid #00a6b2;
+            padding-bottom: 14px;
+            margin-bottom: 20px;
+        }
+
+        h2 {
+            font-size: 22px;
+            margin-top: 30px;
+            padding-top: 10px;
+            border-top: 1px solid #d8e1ec;
+        }
+
+        h3 {
+            font-size: 17px;
+            margin-top: 18px;
+        }
+
+        p {
+            margin: 0 0 10px;
+        }
+
+        ul {
+            margin: 8px 0 16px;
+            padding-left: 24px;
+        }
+
+        li {
+            margin-bottom: 6px;
+        }
+
+        code,
+        .path {
+            direction: ltr;
+            unicode-bidi: embed;
+            display: inline-block;
+            background: #eef6f8;
+            color: #075985;
+            border: 1px solid #cde7ec;
+            border-radius: 5px;
+            padding: 1px 6px;
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 12px;
+        }
+
+        pre {
+            direction: ltr;
+            text-align: left;
+            background: #0f172a;
+            color: #e2e8f0;
+            border-radius: 8px;
+            padding: 14px;
+            overflow-wrap: anywhere;
+            white-space: pre-wrap;
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 12px;
+            line-height: 1.55;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 12px 0 18px;
+            page-break-inside: avoid;
+        }
+
+        th,
+        td {
+            border: 1px solid #d8e1ec;
+            padding: 8px 10px;
+            vertical-align: top;
+        }
+
+        th {
+            background: #e8f7f8;
+            color: #0f4f5a;
+        }
+
+        .lead {
+            font-size: 16px;
+            color: #334155;
+            margin-bottom: 16px;
+        }
+
+        .meta {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+            margin: 16px 0 24px;
+        }
+
+        .meta div,
+        .note,
+        .warning,
+        .flow {
+            border-radius: 8px;
+            padding: 12px 14px;
+        }
+
+        .meta div {
+            background: #f8fafc;
+            border: 1px solid #d8e1ec;
+        }
+
+        .note {
+            background: #ecfeff;
+            border: 1px solid #a5f3fc;
+            color: #164e63;
+            margin: 12px 0;
+        }
+
+        .warning {
+            background: #fff7ed;
+            border: 1px solid #fed7aa;
+            color: #7c2d12;
+            margin: 12px 0;
+        }
+
+        .flow {
+            background: #f8fafc;
+            border: 1px solid #d8e1ec;
+            margin: 12px 0;
+        }
+
+        .flow strong {
+            color: #0f766e;
+        }
+
+        .small {
+            color: #64748b;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+<main>
+    <h1>Explication du code du projet VAS SMS+ Monitor</h1>
+
+    <p class="lead">
+        Ce document explique la structure du projet <strong>Laravel</strong> situe dans
+        <span class="path">D:\vas_project</span>. Il presente les fichiers importants,
+        le cheminement d'une requete, l'authentification, les roles, les CRUD, la base de donnees
+        et les points techniques a surveiller.
+    </p>
+
+    <div class="meta">
+        <div><strong>Type de projet :</strong> application web Laravel pour le suivi VAS/SMS+</div>
+        <div><strong>Framework :</strong> Laravel 13 avec PHP 8.3</div>
+        <div><strong>Base cible :</strong> Oracle via <span class="path">yajra/laravel-oci8</span></div>
+        <div><strong>Interface :</strong> Blade + Bootstrap + Chart.js, avec Vite/Tailwind presents dans le projet</div>
+    </div>
+
+    <h2>1. Idee generale du projet</h2>
+    <p>
+        Le projet est une plateforme de monitoring des revenus et services VAS/SMS+.
+        L'utilisateur se connecte, choisit ou utilise un role, puis accede a un tableau de bord adapte.
+        Les roles principaux sont :
+    </p>
+    <ul>
+        <li><strong>Business :</strong> consultation des revenus, analyses, recherche MSISDN et alertes.</li>
+        <li><strong>Operationnel :</strong> suivi CDR, chargement, aggregation, gestion des services et fournisseurs.</li>
+        <li><strong>Admin :</strong> gestion des utilisateurs et modules d'administration.</li>
+    </ul>
+
+    <div class="note">
+        Plusieurs pages sont encore des placeholders. Les CRUD utilisateurs, services et fournisseurs sont deja implementes.
+    </div>
+
+    <h2>2. Structure des dossiers importants</h2>
+    <table>
+        <thead>
+        <tr>
+            <th>Chemin</th>
+            <th>Role dans le projet</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+            <td><span class="path">routes/web.php</span></td>
+            <td>Definit les routes de l'application : login, dashboard, Business, Operations et Admin.</td>
+        </tr>
+        <tr>
+            <td><span class="path">app/Http/Controllers</span></td>
+            <td>Contient la logique qui recoit les requetes et retourne les vues ou redirections.</td>
+        </tr>
+        <tr>
+            <td><span class="path">app/Http/Middleware</span></td>
+            <td>Controle l'acces aux pages selon l'authentification et le role.</td>
+        </tr>
+        <tr>
+            <td><span class="path">app/Models</span></td>
+            <td>Represente les tables de base de donnees avec Eloquent.</td>
+        </tr>
+        <tr>
+            <td><span class="path">resources/views</span></td>
+            <td>Contient les vues Blade responsables du HTML.</td>
+        </tr>
+        <tr>
+            <td><span class="path">app/Console/Commands</span></td>
+            <td>Contient les commandes Artisan pour importer les fichiers CDR MMG et OCC.</td>
+        </tr>
+        <tr>
+            <td><span class="path">config/database.php</span></td>
+            <td>Contient la configuration des connexions de base de donnees, dont Oracle.</td>
+        </tr>
+        <tr>
+            <td><span class="path">tests</span></td>
+            <td>Contient les tests PHPUnit actuels.</td>
+        </tr>
+        </tbody>
+    </table>
+
+    <h2>3. Cheminement d'une requete Laravel</h2>
+    <div class="flow">
+        <strong>Navigateur</strong>
+        demande une URL comme <span class="path">/dashboard</span>
+        -> Laravel cherche la route dans <span class="path">routes/web.php</span>
+        -> la requete passe par les middleware, par exemple <span class="path">dashboard.access</span>
+        -> elle arrive dans un controller, par exemple <span class="path">DashboardController@index</span>
+        -> le controller prepare les donnees
+        -> il retourne une vue Blade, par exemple <span class="path">dashboard.index</span>
+        -> le navigateur affiche la page.
+    </div>
+
+    <h2>4. Le fichier routes/web.php</h2>
+    <p>
+        Ce fichier est la carte de navigation de l'application. Il contient notamment :
+    </p>
+    <ul>
+        <li>La route <span class="path">/</span> qui redirige vers <span class="path">/login</span>.</li>
+        <li>Les routes de connexion et de reinitialisation du mot de passe.</li>
+        <li>Un groupe protege par le middleware <span class="path">dashboard.access</span>.</li>
+        <li>Des sous-groupes proteges par role : <span class="path">business</span>, <span class="path">operationnel</span> et <span class="path">admin</span>.</li>
+    </ul>
+
+    <pre>Route::middleware('dashboard.access')->group(function (): void {
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+
+    Route::middleware('role:operationnel')
+        ->prefix('operations')
+        ->name('operations.')
+        ->group(function (): void {
+            Route::resource('services', ServiceController::class)->except(['show']);
+        });
+});</pre>
+
+    <p>
+        Dans cet exemple, <span class="path">/dashboard</span> exige une session autorisee.
+        Les routes <span class="path">operations/services</span> exigent le role <span class="path">operationnel</span>.
+    </p>
+
+    <h2>5. Authentification et roles</h2>
+    <h3>AuthController</h3>
+    <p>
+        Le fichier <span class="path">app/Http/Controllers/AuthController.php</span> gere :
+    </p>
+    <ul>
+        <li>L'affichage de la page de connexion.</li>
+        <li>La validation de l'email, du mot de passe et du role choisi.</li>
+        <li>La verification du mot de passe.</li>
+        <li>La conversion automatique d'un ancien mot de passe en clair vers un hash Laravel, si la connexion reussit.</li>
+        <li>Le stockage du role actif en session avec la cle <span class="path">active_role</span>.</li>
+        <li>Le mode demonstration sans Oracle via <span class="path">AUTH_DEMO_LOGIN=true</span>.</li>
+        <li>La reinitialisation personnalisee du mot de passe avec email et telephone.</li>
+    </ul>
+
+    <h3>EnsureDashboardAccess</h3>
+    <p>
+        Ce middleware laisse passer la requete si l'utilisateur est connecte avec Laravel Auth
+        ou si la session de demonstration est active. Sinon, l'utilisateur est redirige vers la page login.
+    </p>
+
+    <h3>EnsureUserHasRole</h3>
+    <p>
+        Ce middleware lit le role actif depuis la session ou depuis l'utilisateur.
+        Il verifie ensuite que ce role est autorise pour la route demandee.
+        En cas d'echec, il retourne une erreur 403.
+    </p>
+
+    <h2>6. Le modele User</h2>
+    <p>
+        Le fichier <span class="path">app/Models/User.php</span> represente la table
+        <span class="path">users</span>. Il contient les constantes de roles et les methodes de conversion
+        entre les roles utilises dans l'application et ceux stockes dans Oracle.
+    </p>
+
+    <table>
+        <thead>
+        <tr>
+            <th>Dans l'application</th>
+            <th>Dans Oracle</th>
+            <th>Signification</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+            <td><span class="path">admin</span></td>
+            <td><span class="path">ADMIN</span></td>
+            <td>Administrateur</td>
+        </tr>
+        <tr>
+            <td><span class="path">business</span></td>
+            <td><span class="path">BUSINESS</span></td>
+            <td>Analyste Business</td>
+        </tr>
+        <tr>
+            <td><span class="path">operationnel</span></td>
+            <td><span class="path">OPERATION</span></td>
+            <td>Analyste Operationnel</td>
+        </tr>
+        </tbody>
+    </table>
+
+    <p>
+        La methode <span class="path">normalizeRole</span> est importante : elle accepte plusieurs variantes
+        d'un role et les transforme en une valeur standard.
+    </p>
+
+    <h2>7. DashboardController</h2>
+    <p>
+        Le fichier <span class="path">app/Http/Controllers/DashboardController.php</span>
+        affiche le tableau de bord principal. Pour le moment, les donnees sont statiques et definies dans le code :
+    </p>
+    <ul>
+        <li>Indicateurs KPI : revenu total, nombre de SMS+, nombre de services, alertes actives.</li>
+        <li>Evolution journaliere et mensuelle des revenus.</li>
+        <li>Top 5 des services par revenu.</li>
+        <li>Repartition du revenu par fournisseur.</li>
+        <li>Liste d'alertes de demonstration.</li>
+    </ul>
+
+    <div class="warning">
+        Ces donnees devront etre remplacees par des requetes Oracle reelles, surtout depuis
+        <span class="path">ra_t_agg_mmg</span> et <span class="path">ra_t_agg_occ</span>.
+    </div>
+
+    <h2>8. CRUD des services</h2>
+    <p>
+        Fichiers principaux :
+    </p>
+    <ul>
+        <li><span class="path">app/Http/Controllers/Operations/ServiceController.php</span></li>
+        <li><span class="path">app/Models/Service.php</span></li>
+        <li><span class="path">resources/views/operations/services</span></li>
+    </ul>
+
+    <p>
+        Cette partie permet de lister, rechercher, ajouter, modifier et supprimer des services.
+        Elle s'appuie sur la table <span class="path">services</span> et relie chaque service a un fournisseur :
+    </p>
+
+    <pre>public function provider(): BelongsTo
+{
+    return $this->belongsTo(VasServiceProvider::class, 'provider_id', 'id');
+}</pre>
+
+    <p>
+        Lors de l'ajout, l'ID est calcule avec <span class="path">max(id) + 1</span>.
+        Cela vient probablement du fonctionnement Oracle existant sans auto-increment Laravel classique.
+    </p>
+
+    <h2>9. CRUD des fournisseurs</h2>
+    <p>
+        Fichiers principaux :
+    </p>
+    <ul>
+        <li><span class="path">app/Http/Controllers/Operations/ProviderController.php</span></li>
+        <li><span class="path">app/Models/VasServiceProvider.php</span></li>
+        <li><span class="path">resources/views/operations/providers</span></li>
+    </ul>
+
+    <p>
+        Le fournisseur est stocke dans la table <span class="path">service_provider</span>.
+        Sa relation avec les services est :
+    </p>
+
+    <pre>public function services(): HasMany
+{
+    return $this->hasMany(Service::class, 'provider_id', 'id');
+}</pre>
+
+    <p>
+        Avant de supprimer un fournisseur, le code verifie qu'aucun service n'y est rattache.
+        Cela evite de casser les relations de donnees.
+    </p>
+
+    <h2>10. CRUD des utilisateurs</h2>
+    <p>
+        Le fichier <span class="path">app/Http/Controllers/Admin/UserController.php</span>
+        gere l'administration des utilisateurs : liste, recherche, creation, modification et suppression.
+    </p>
+    <ul>
+        <li>L'email doit etre unique.</li>
+        <li>Le mot de passe est stocke avec <span class="path">Hash::make</span>.</li>
+        <li>Les roles sont enregistres au format Oracle : <span class="path">ADMIN</span>, <span class="path">BUSINESS</span>, <span class="path">OPERATION</span>.</li>
+        <li>Un utilisateur ne peut pas supprimer son propre compte connecte.</li>
+    </ul>
+
+    <h2>11. Modeles revenus et alertes</h2>
+    <p>
+        Trois modeles simples representent des tables Oracle utiles au dashboard et aux traitements :
+    </p>
+    <table>
+        <thead>
+        <tr>
+            <th>Modele</th>
+            <th>Table</th>
+            <th>Utilisation prevue</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+            <td><span class="path">RevenueAggregateMmg</span></td>
+            <td><span class="path">ra_t_agg_mmg</span></td>
+            <td>Aggregations des revenus ou donnees MMG.</td>
+        </tr>
+        <tr>
+            <td><span class="path">RevenueAggregateOcc</span></td>
+            <td><span class="path">ra_t_agg_occ</span></td>
+            <td>Aggregations des revenus ou donnees OCC.</td>
+        </tr>
+        <tr>
+            <td><span class="path">Alert</span></td>
+            <td><span class="path">alerts</span></td>
+            <td>Alertes ou incidents.</td>
+        </tr>
+        </tbody>
+    </table>
+
+    <h2>12. Commandes d'import CDR</h2>
+    <p>
+        Deux commandes Artisan sont disponibles :
+    </p>
+    <ul>
+        <li><span class="path">php artisan cdr:import-mmg</span></li>
+        <li><span class="path">php artisan cdr:import-occ</span></li>
+    </ul>
+
+    <p>
+        Leur fonctionnement general :
+    </p>
+    <ul>
+        <li>Lecture des fichiers CSV depuis <span class="path">storage/app/cdr/incoming/mmg</span> ou <span class="path">storage/app/cdr/incoming/occ</span>.</li>
+        <li>Insertion des lignes dans une table temporaire comme <span class="path">ra_t_tmp_mmg</span>.</li>
+        <li>Transfert d'une partie des donnees vers une table detail comme <span class="path">ra_t_detail_mmg</span>.</li>
+        <li>Si tout reussit, le fichier est deplace dans processed.</li>
+        <li>En cas d'erreur, le fichier est deplace dans error et le message d'erreur est affiche.</li>
+    </ul>
+
+    <div class="note">
+        Les commandes utilisent une transaction. C'est utile : en cas d'erreur, Laravel effectue un rollback
+        et evite de laisser des donnees incompletes.
+    </div>
+
+    <h2>13. Les vues Blade</h2>
+    <p>
+        La vue principale est <span class="path">resources/views/layouts/app.blade.php</span>.
+        Elle contient :
+    </p>
+    <ul>
+        <li>La structure generale des pages internes.</li>
+        <li>Les liens CDN vers Bootstrap et Bootstrap Icons.</li>
+        <li>La sidebar.</li>
+        <li>La topbar et le bouton de deconnexion.</li>
+        <li>Le CSS global des cartes, graphiques, tableaux et adaptations mobiles.</li>
+    </ul>
+
+    <p>
+        La sidebar est dans <span class="path">resources/views/partials/sidebar.blade.php</span>.
+        Son contenu change selon le role actif.
+    </p>
+
+    <h2>14. Page de connexion</h2>
+    <p>
+        Le fichier <span class="path">resources/views/auth/login.blade.php</span>
+        affiche une page independante du layout principal. Elle contient :
+    </p>
+    <ul>
+        <li>Le choix du type d'utilisateur : Admin, Business ou Operationnel.</li>
+        <li>Les champs email et mot de passe.</li>
+        <li>Le lien Forget password.</li>
+        <li>Les messages d'erreur ou de succes.</li>
+        <li>Une note sur le mode demo login.</li>
+    </ul>
+
+    <h2>15. Configuration de la base de donnees</h2>
+    <p>
+        Dans <span class="path">config/database.php</span>, la connexion Oracle est definie ainsi :
+    </p>
+
+    <pre>'oracle' => [
+    'driver' => 'oracle',
+    'host' => env('DB_HOST', '127.0.0.1'),
+    'port' => env('DB_PORT', '1521'),
+    'database' => env('DB_DATABASE', ''),
+    'service_name' => env('DB_SERVICE_NAME', ''),
+    'username' => env('DB_USERNAME', ''),
+    'password' => env('DB_PASSWORD', ''),
+]</pre>
+
+    <p>
+        Pour utiliser Oracle, le fichier <span class="path">.env</span> doit contenir des valeurs de ce type :
+    </p>
+
+    <pre>DB_CONNECTION=oracle
+DB_HOST=...
+DB_PORT=1521
+DB_SERVICE_NAME=...
+DB_USERNAME=...
+DB_PASSWORD=...</pre>
+
+    <h2>16. Tests actuels</h2>
+    <p>
+        Les tests existants sont simples :
+    </p>
+    <ul>
+        <li><span class="path">tests/Unit/ExampleTest.php</span> : verifie que true vaut true.</li>
+        <li><span class="path">tests/Feature/ExampleTest.php</span> : verifie que <span class="path">/</span> redirige vers <span class="path">/login</span>.</li>
+    </ul>
+
+    <p>La commande suivante a ete executee avec succes :</p>
+    <pre>php artisan test
+
+Tests: 2 passed, 3 assertions</pre>
+
+    <h2>17. Remarques techniques importantes</h2>
+    <ul>
+        <li>Certains textes francais ont un probleme d'encodage, par exemple <span class="path">DÃ©connexion</span> au lieu de <span class="path">Déconnexion</span>.</li>
+        <li>Le fichier <span class="path">.env.example</span> est encore configure par defaut pour SQLite, alors que l'application vise Oracle.</li>
+        <li>Les migrations actuelles ne creent pas toutes les tables applicatives, comme <span class="path">services</span>, <span class="path">service_provider</span> et <span class="path">ra_t_*</span>.</li>
+        <li>Le dashboard utilise des donnees statiques. Il faudra le connecter aux vraies donnees Oracle.</li>
+        <li>L'utilisation de <span class="path">max(id) + 1</span> peut poser probleme si deux utilisateurs creent des lignes en meme temps. Une Oracle Sequence serait plus robuste.</li>
+        <li>Bootstrap et Chart.js sont charges depuis des CDN. L'interface depend donc d'internet sauf si ces assets sont installes localement.</li>
+    </ul>
+
+    <h2>18. Plan de travail conseille</h2>
+    <ul>
+        <li>Corriger l'encodage des textes francais dans les Blade et Controllers.</li>
+        <li>Mettre a jour <span class="path">.env.example</span> avec les variables Oracle et demo login.</li>
+        <li>Connecter le dashboard aux tables <span class="path">ra_t_agg_mmg</span> et <span class="path">ra_t_agg_occ</span>.</li>
+        <li>Remplacer <span class="path">max(id) + 1</span> par des Oracle Sequences.</li>
+        <li>Ajouter des tests pour login, roles et CRUD.</li>
+        <li>Transformer les placeholders en vraies pages selon les besoins du projet.</li>
+    </ul>
+
+    <h2>19. Resume rapide</h2>
+    <p>
+        Pour comprendre rapidement le projet, commence par <span class="path">routes/web.php</span>,
+        puis lis les Controllers pour la logique, les Models pour les tables, et les vues Blade pour l'interface.
+        Les parties les plus importantes aujourd'hui sont l'authentification, les roles, les CRUD utilisateurs,
+        services et fournisseurs, ainsi que les commandes d'import CDR.
+    </p>
+
+    <p class="small">
+        Document prepare a partir de la lecture du code actuel. Derniere verification :
+        les tests existants passent avec <span class="path">php artisan test</span>.
+    </p>
+</main>
+</body>
+</html>
