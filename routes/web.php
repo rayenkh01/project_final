@@ -5,10 +5,13 @@ use App\Http\Controllers\Admin\DatabaseController;
 use App\Http\Controllers\Admin\FtpController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\Business\AlertsController;
 use App\Http\Controllers\Business\MsisdnSearchController;
+use App\Http\Controllers\Business\PdfExportController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Operations\AggregationController;
 use App\Http\Controllers\Operations\CdrLoadingController;
+use App\Http\Controllers\Operations\CdrSuppressionController;
 use App\Http\Controllers\Operations\ProviderController;
 use App\Http\Controllers\Operations\ServiceController;
 
@@ -20,8 +23,16 @@ Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
 Route::post('/login', [AuthController::class, 'login'])->name('login.submit');
 Route::get('/forgot-password', [AuthController::class, 'showForgotPassword'])
     ->name('password.request');
-Route::post('/forgot-password', [AuthController::class, 'resetPassword'])
+Route::post('/forgot-password', [AuthController::class, 'sendPasswordResetLink'])
+    ->name('password.email.custom');
+Route::get('/reset-password/{token}', [AuthController::class, 'showResetPassword'])
     ->name('password.reset.custom');
+Route::post('/reset-password', [AuthController::class, 'resetPassword'])
+    ->name('password.update.custom');
+Route::get('/invitation/{token}', [AuthController::class, 'showInvitation'])
+    ->name('invitation.accept');
+Route::post('/invitation', [AuthController::class, 'acceptInvitation'])
+    ->name('invitation.activate');
 
 Route::middleware('dashboard.access')->group(function (): void {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
@@ -37,9 +48,10 @@ Route::middleware('dashboard.access')->group(function (): void {
         Route::post('/services/msisdn/excel', [MsisdnSearchController::class, 'excelSearch'])
             ->name('msisdn.excel.search');
 
-        Route::get('/alertes', [DashboardController::class, 'placeholder'])
-            ->name('alerts.index')
-            ->defaults('title', 'Alertes / historique des incidents');
+        Route::get('/alertes', [AlertsController::class, 'index'])
+            ->name('alerts.index');
+        Route::get('/alertes/pdf', [PdfExportController::class, 'exportPdf'])
+            ->name('alerts.pdf');
 
         Route::get('/notifications/email', [DashboardController::class, 'placeholder'])
             ->name('notifications.email')
@@ -53,9 +65,8 @@ Route::middleware('dashboard.access')->group(function (): void {
         Route::get('/aggregation', [AggregationController::class, 'index'])
             ->name('aggregation.index');
 
-        Route::get('/cdr/suppression', [DashboardController::class, 'placeholder'])
-            ->name('cdr.delete')
-            ->defaults('title', 'Suppression CDR');
+        Route::get('/cdr/suppression', [CdrSuppressionController::class, 'index'])
+            ->name('cdr.delete');
 
         Route::resource('services', ServiceController::class)
             ->parameters(['services' => 'service'])
@@ -79,6 +90,8 @@ Route::middleware('dashboard.access')->group(function (): void {
 
         Route::get('/ftp', [FtpController::class, 'index'])
             ->name('ftp.index');
+        Route::post('/ftp/fetch', [FtpController::class, 'fetch'])
+            ->name('ftp.fetch');
 
         Route::resource('utilisateurs', UserController::class)
             ->names('users')
