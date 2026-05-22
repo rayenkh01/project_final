@@ -48,11 +48,34 @@ class DatabaseController extends Controller
         @set_time_limit(0);
 
         try {
+            $outputs = [];
+
+            if (config('cdr_ftp.enabled')) {
+                $fetchExitCode = Artisan::call('cdr:ftp-fetch', [
+                    'source' => 'all',
+                ]);
+                $outputs[] = '[FTP]' . PHP_EOL . trim(Artisan::output());
+
+                if ($fetchExitCode !== 0) {
+                    $output = trim(implode(PHP_EOL . PHP_EOL, $outputs));
+                    $this->appendImportLog($output, $fetchExitCode);
+
+                    return redirect()
+                        ->route('admin.database.index')
+                        ->with('operationResult', [
+                            'ok' => false,
+                            'message' => "Synchronisation FTP terminee avec code {$fetchExitCode}.",
+                            'output' => $output,
+                        ]);
+                }
+            }
+
             $exitCode = Artisan::call('cdr:import', [
                 'source' => 'all',
                 '--stop-on-failure' => true,
             ]);
-            $output = trim(Artisan::output());
+            $outputs[] = '[IMPORT]' . PHP_EOL . trim(Artisan::output());
+            $output = trim(implode(PHP_EOL . PHP_EOL, $outputs));
             $this->appendImportLog($output, $exitCode);
 
             return redirect()
@@ -173,12 +196,14 @@ class DatabaseController extends Controller
     {
         return [
             'status' => 'Configure',
-            'frequency' => 'Chaque 15 minutes',
-            'command' => 'php artisan cdr:import all --stop-on-failure',
+            'frequency' => 'Chaque heure: FTP a HH:00, import ELT a HH:01',
+            'command' => config('cdr_ftp.enabled')
+                ? 'php artisan cdr:ftp-fetch all && php artisan cdr:import all --stop-on-failure'
+                : 'php artisan cdr:import all --stop-on-failure',
             'cleanup_frequency' => 'Chaque jour a 02:30',
             'cleanup_command' => 'php artisan cdr:cleanup --days=30',
             'overlap' => 'Sans chevauchement: 60 minutes',
-            'server_cron' => 'php artisan schedule:run chaque minute',
+            'server_cron' => 'php artisan schedule:run via Windows Task Scheduler',
             'log_path' => 'storage/logs/cdr-import.log',
             'cleanup_log_path' => 'storage/logs/cdr-cleanup.log',
             'last_run_at' => $log['last_run_at'],

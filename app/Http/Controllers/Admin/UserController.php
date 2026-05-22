@@ -8,9 +8,13 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
+use Throwable;
 
 class UserController extends Controller
 {
@@ -43,6 +47,7 @@ class UserController extends Controller
                 'admin' => User::query()->where('role', User::ORACLE_ROLE_ADMIN)->count(),
                 'business' => User::query()->where('role', User::ORACLE_ROLE_BUSINESS)->count(),
                 'operation' => User::query()->where('role', User::ORACLE_ROLE_OPERATION)->count(),
+                'pending' => User::query()->whereNotNull('invitation_token_hash')->count(),
             ],
         ]);
     }
@@ -61,20 +66,29 @@ class UserController extends Controller
     {
         $data = $this->validatedData($request);
         $this->ensureEmailIsUnique($data['email']);
+        $this->ensurePhoneIsUnique($data['tel'] ?? null);
+        $invitationToken = Str::random(64);
 
         DB::table('users')->insert([
             'id' => $this->nextUserId(),
             'email' => strtolower($data['email']),
-            'password' => Hash::make($data['password']),
+            'password' => Hash::make(Str::random(48)),
             'direction' => $data['direction'] ?: null,
             'role' => $data['role'],
             'tel' => $data['tel'] ?: null,
+            'email_verified_at' => null,
+            'invitation_token_hash' => hash('sha256', $invitationToken),
+            'invitation_expires_at' => now()->addHours(48),
             'created_at' => DB::raw('SYSDATE'),
         ]);
 
+        if ($request->boolean('notify_user', true)) {
+            $this->sendAccountCreatedNotification($data, $invitationToken);
+        }
+
         return redirect()
             ->route('admin.users.index')
-            ->with('status', 'Utilisateur ajoute avec succes.');
+            ->with('status', 'Utilisateur ajoute avec succes. Un lien d activation temporaire a ete envoye si le service mail est configure.');
     }
 
     public function edit(User $user): View
@@ -91,6 +105,7 @@ class UserController extends Controller
     {
         $data = $this->validatedData($request, $user);
         $this->ensureEmailIsUnique($data['email'], (int) $user->id);
+        $this->ensurePhoneIsUnique($data['tel'] ?? null, (int) $user->id);
 
         $payload = [
             'email' => strtolower($data['email']),
@@ -132,10 +147,11 @@ class UserController extends Controller
     {
         return $request->validate([
             'email' => ['required', 'email', 'max:150'],
-            'password' => [$user ? 'nullable' : 'required', 'string', 'min:6', 'max:120'],
+            'password' => ['nullable', 'string', 'min:6', 'max:120'],
             'direction' => ['nullable', 'string', 'max:100'],
             'role' => ['required', Rule::in(User::oracleRoles())],
             'tel' => ['nullable', 'string', 'max:20'],
+            'notify_user' => ['nullable', 'boolean'],
         ]);
     }
 
@@ -155,8 +171,53 @@ class UserController extends Controller
         }
     }
 
+    private function ensurePhoneIsUnique(?string $tel, ?int $ignoredUserId = null): void
+    {
+        $tel = trim((string) $tel);
+
+        if ($tel === '') {
+            return;
+        }
+
+        $query = User::query()
+            ->whereRaw('TRIM(tel) = ?', [$tel]);
+
+        if ($ignoredUserId) {
+            $query->where('id', '<>', $ignoredUserId);
+        }
+
+        if ($query->exists()) {
+            throw ValidationException::withMessages([
+                'tel' => 'Ce numero de telephone existe deja.',
+            ]);
+        }
+    }
+
     private function nextUserId(): int
     {
         return ((int) User::query()->max('id')) + 1;
+    }
+
+    private function sendAccountCreatedNotification(array $data, string $invitationToken): void
+    {
+        try {
+            Mail::send('emails.users.account-created', [
+                'email' => strtolower($data['email']),
+                'roleLabel' => User::roleLabel($data['role']),
+                'direction' => $data['direction'] ?: null,
+                'loginUrl' => route('login'),
+                'activationUrl' => route('invitation.accept', ['token' => $invitationToken]),
+                'expiresAt' => now()->addHours(48),
+            ], function ($message) use ($data): void {
+                $message
+                    ->to(strtolower($data['email']))
+                    ->subject('Activez votre compte VAS CDR');
+            });
+        } catch (Throwable $e) {
+            Log::warning('Account creation email could not be sent.', [
+                'email' => strtolower($data['email']),
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 }
