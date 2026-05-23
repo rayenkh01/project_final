@@ -5,28 +5,36 @@
 
 @section('content')
     <section class="row g-3 mb-4">
-        <div class="col-12 col-sm-6 col-xl-3">
+        <div class="col-12 col-sm-6 col-xl">
             <div class="soft-card p-3 h-100">
                 <div class="text-muted small">Total utilisateurs</div>
                 <div class="fs-3 fw-bold">{{ $stats['total'] }}</div>
             </div>
         </div>
-        <div class="col-12 col-sm-6 col-xl-3">
+        <div class="col-12 col-sm-6 col-xl">
             <div class="soft-card p-3 h-100">
                 <div class="text-muted small">Administrateurs</div>
                 <div class="fs-3 fw-bold text-danger">{{ $stats['admin'] }}</div>
             </div>
         </div>
-        <div class="col-12 col-sm-6 col-xl-3">
+        <div class="col-12 col-sm-6 col-xl">
             <div class="soft-card p-3 h-100">
                 <div class="text-muted small">Analystes Business</div>
                 <div class="fs-3 fw-bold text-primary">{{ $stats['business'] }}</div>
             </div>
         </div>
-        <div class="col-12 col-sm-6 col-xl-3">
+
+        <div class="col-12 col-sm-6 col-xl">
             <div class="soft-card p-3 h-100">
                 <div class="text-muted small">Analystes Operationnels</div>
                 <div class="fs-3 fw-bold text-success">{{ $stats['operation'] }}</div>
+            </div>
+        </div>
+
+        <div class="col-12 col-sm-6 col-xl">
+            <div class="soft-card p-3 h-100">
+                <div class="text-muted small">Invitations en attente</div>
+                <div class="fs-3 fw-bold text-warning">{{ $stats['pending'] }}</div>
             </div>
         </div>
     </section>
@@ -82,6 +90,7 @@
                         <th>Email</th>
                         <th>Direction</th>
                         <th>Role</th>
+                        <th>Statut</th>
                         <th>Telephone</th>
                         <th>Date creation</th>
                         <th class="text-end">Actions</th>
@@ -97,6 +106,13 @@
                                 <span class="badge text-bg-light border">
                                     {{ $roles[$user->role] ?? \App\Models\User::roleLabel($user->role) }}
                                 </span>
+                            </td>
+                            <td>
+                                @if ($user->hasPendingInvitation())
+                                    <span class="badge text-bg-warning">En attente</span>
+                                @else
+                                    <span class="badge text-bg-success">Actif</span>
+                                @endif
                             </td>
                             <td>{{ $user->tel ?: '-' }}</td>
                             <td>
@@ -123,7 +139,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="7" class="text-center text-muted py-5">
+                            <td colspan="8" class="text-center text-muted py-5">
                                 Aucun utilisateur trouve.
                             </td>
                         </tr>

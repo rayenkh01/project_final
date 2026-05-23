@@ -120,6 +120,12 @@
             color: #b91c1c;
         }
 
+        .alert-success {
+            background: #ecfdf5;
+            border: 1px solid #bbf7d0;
+            color: #047857;
+        }
+
         .info-box {
             background: #eff6ff;
             border: 1px solid #bfdbfe;
@@ -138,8 +144,14 @@
             <div class="title-box">
                 <img src="{{ asset('images/logo_TT.png') }}" alt="Logo">
                 <h1>Mot de passe oublie</h1>
-                <p>Reinitialisation via email et telephone Oracle</p>
+                <p>Reception d'un lien securise par email</p>
             </div>
+
+            @if (session('status'))
+                <div class="alert alert-success">
+                    {{ session('status') }}
+                </div>
+            @endif
 
             @if ($errors->any())
                 <div class="alert alert-danger">
@@ -148,10 +160,10 @@
             @endif
 
             <div class="info-box">
-                Entrez l'email et le telephone enregistres dans la table users, puis choisissez un nouveau mot de passe.
+                Entrez votre email. Si le compte est actif, un lien temporaire de reinitialisation sera envoye.
             </div>
 
-            <form method="POST" action="{{ route('password.reset.custom') }}">
+            <form method="POST" action="{{ route('password.email.custom') }}">
                 @csrf
 
                 <div class="form-group">
@@ -159,22 +171,7 @@
                     <input id="email" type="email" name="email" value="{{ old('email') }}" placeholder="admin@test.com" required>
                 </div>
 
-                <div class="form-group">
-                    <label class="main-label" for="tel">Telephone</label>
-                    <input id="tel" type="text" name="tel" value="{{ old('tel') }}" placeholder="12345678" required>
-                </div>
-
-                <div class="form-group">
-                    <label class="main-label" for="password">Nouveau mot de passe</label>
-                    <input id="password" type="password" name="password" minlength="6" required>
-                </div>
-
-                <div class="form-group">
-                    <label class="main-label" for="password_confirmation">Confirmer le mot de passe</label>
-                    <input id="password_confirmation" type="password" name="password_confirmation" minlength="6" required>
-                </div>
-
-                <button type="submit" class="btn">Reinitialiser</button>
+                <button type="submit" class="btn">Envoyer le lien</button>
                 <a class="link" href="{{ route('login') }}">Retour a la connexion</a>
             </form>
         </div>

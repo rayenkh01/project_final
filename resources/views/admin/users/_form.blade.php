@@ -30,6 +30,8 @@
             Mot de passe
             @if ($isEdit)
                 <span class="text-muted small">(laisser vide pour ne pas changer)</span>
+            @else
+                <span class="text-muted small">(defini par l'utilisateur via invitation)</span>
             @endif
         </label>
         <input
@@ -39,7 +41,6 @@
             class="form-control @error('password') is-invalid @enderror"
             minlength="6"
             maxlength="120"
-            {{ $isEdit ? '' : 'required' }}
         >
         @error('password')
             <div class="invalid-feedback">{{ $message }}</div>
@@ -91,6 +92,28 @@
             <div class="invalid-feedback">{{ $message }}</div>
         @enderror
     </div>
+
+    @unless ($isEdit)
+        <div class="col-12">
+            <div class="form-check">
+                <input type="hidden" name="notify_user" value="0">
+                <input
+                    id="notify_user"
+                    class="form-check-input"
+                    type="checkbox"
+                    name="notify_user"
+                    value="1"
+                    @checked(old('notify_user', '1') === '1')
+                >
+                <label for="notify_user" class="form-check-label">
+                    Envoyer une invitation email a l'utilisateur
+                </label>
+                <div class="form-text">
+                    Le message contient un lien d'activation temporaire pour definir le mot de passe initial.
+                </div>
+            </div>
+        </div>
+    @endunless
 </div>
 
 <div class="d-flex flex-wrap justify-content-end gap-2 mt-4">

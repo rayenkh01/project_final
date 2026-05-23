@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['email', 'password', 'direction', 'role', 'tel'])]
+#[Fillable(['email', 'password', 'direction', 'role', 'tel', 'invitation_token_hash', 'invitation_expires_at'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -109,6 +109,11 @@ class User extends Authenticatable
         return in_array($this->dashboardRole(), $roles, true);
     }
 
+    public function hasPendingInvitation(): bool
+    {
+        return filled($this->invitation_token_hash);
+    }
+
     /**
      * Get the attributes that should be cast.
      *
@@ -118,6 +123,7 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            'invitation_expires_at' => 'datetime',
             'password' => 'hashed',
         ];
     }
